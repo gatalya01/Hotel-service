@@ -1,0 +1,26 @@
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="1" author="User">
+        <createTable tableName="room_unavailable_dates">
+            <column name="room_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="unavailable_dates" type="date">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="2" author="User">
+        <addForeignKeyConstraint
+                baseTableName="room_unavailable_dates"
+                baseColumnNames="room_id"
+                referencedTableName="rooms"
+                referencedColumnNames="id"
+                constraintName="fk_unavailable_dates_room"/>
+    </changeSet>
+</databaseChangeLog>

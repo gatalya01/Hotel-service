@@ -1,0 +1,44 @@
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="1" author="User">
+        <createTable tableName="hotels">
+            <column name="id" type="serial">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="announcement" type="varchar(255)"/>
+            <column name="city" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="address" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="distance_from_city_center" type="double">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rating" type="double">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rating_count" type="int">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="2" author="User">
+        <sql>
+            <![CDATA[
+            ALTER TABLE hotels
+                ADD CONSTRAINT chk_rating CHECK (rating >= 0 AND rating <= 5);
+            ALTER TABLE hotels
+                ADD CONSTRAINT chk_rating_count CHECK (rating_count >= 0);
+            ]]>
+        </sql>
+    </changeSet>
+</databaseChangeLog>
