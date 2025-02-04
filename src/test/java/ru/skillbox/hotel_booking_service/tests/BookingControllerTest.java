@@ -1,60 +1,69 @@
 package ru.skillbox.hotel_booking_service.tests;
 
-import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.BDDMockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import ru.skillbox.hotel_booking_service.service.BookingService;
 import ru.skillbox.hotel_booking_service.web.controller.BookingController;
 import ru.skillbox.hotel_booking_service.web.model.BookingListResponse;
 import ru.skillbox.hotel_booking_service.web.model.BookingResponse;
 import ru.skillbox.hotel_booking_service.web.model.UpsertBookingRequest;
 
-@ExtendWith(MockitoExtension.class)
+@WebMvcTest(BookingController.class)
 class BookingControllerTest {
 
-  @Mock
+  @Autowired
+  private MockMvc mvc;
+
+  @MockBean
   private BookingService bookingService;
 
-  @InjectMocks
-  private BookingController bookingController;
+  @Autowired
+  private ObjectMapper objectMapper;
 
   @Test
-  void bookRoom_ShouldReturnCreatedResponse() {
+  void bookRoom_ShouldReturnCreatedResponse() throws Exception {
     UpsertBookingRequest request = new UpsertBookingRequest();
     BookingResponse response = new BookingResponse();
 
-    when(bookingService.bookRoom(request)).thenReturn(response);
+    given(bookingService.bookRoom(request)).willReturn(response);
 
-    ResponseEntity<BookingResponse> result = bookingController.bookRoom(request);
-
-    assertEquals(HttpStatus.CREATED, result.getStatusCode());
-    assertNotNull(result.getBody());
+    mvc.perform(post("/api/bookings")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(objectMapper.writeValueAsString(request)))
+      .andExpect(status().isCreated())
+      .andExpect(jsonPath("$.id").exists());
   }
 
   @Test
-  void findAll_ShouldReturnBookingList() {
+  void findAll_ShouldReturnBookingList() throws Exception {
     BookingListResponse response = new BookingListResponse();
-    when(bookingService.findAll(0, 10)).thenReturn(response);
 
-    ResponseEntity<BookingListResponse> result = bookingController.findAll(0, 10);
+    given(bookingService.findAll(0, 10)).willReturn(response);
 
-    assertEquals(HttpStatus.OK, result.getStatusCode());
-    assertNotNull(result.getBody());
+    mvc.perform(get("/api/bookings")
+        .param("page", "0")
+        .param("size", "10")
+        .contentType(MediaType.APPLICATION_JSON))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.bookings").exists());
   }
 
   @Test
-  void delete_ShouldReturnNoContent() {
-    doNothing().when(bookingService).deleteById(1L);
+  void delete_ShouldReturnNoContent() throws Exception {
+    willDoNothing().given(bookingService).deleteById(1L);
 
-    ResponseEntity<Void> result = bookingController.delete(1L);
-
-    assertEquals(HttpStatus.NO_CONTENT, result.getStatusCode());
+    mvc.perform(delete("/api/bookings/{id}", 1L)
+        .contentType(MediaType.APPLICATION_JSON))
+      .andExpect(status().isNoContent());
   }
 }

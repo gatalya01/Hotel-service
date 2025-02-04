@@ -1,68 +1,73 @@
 package ru.skillbox.hotel_booking_service.tests;
 
-import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.mockito.BDDMockito.given;
+import static org.hamcrest.Matchers.*;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.web.servlet.MockMvc;
 import ru.skillbox.hotel_booking_service.exception.EntityNotFoundException;
-import ru.skillbox.hotel_booking_service.web.controller.ExceptionHandlerController;
-import ru.skillbox.hotel_booking_service.web.model.ErrorResponse;
+import ru.skillbox.hotel_booking_service.web.controller.BookingController;
 
-import java.util.Collections;
-
-@ExtendWith(MockitoExtension.class)
+@ExtendWith(SpringExtension.class)
+@WebMvcTest(controllers = BookingController.class)
 class ExceptionHandlerControllerTest {
 
-  @InjectMocks
-  private ExceptionHandlerController exceptionHandlerController;
+  @Autowired
+  private MockMvc mockMvc;
+
+  @MockBean
+  private BookingController bookingController;
 
   @Test
-  void notFound_ShouldReturnNotFoundResponse() {
-    EntityNotFoundException ex = new EntityNotFoundException("Entity not found");
-    ResponseEntity<ErrorResponse> response = exceptionHandlerController.notFound(ex);
+  void notFound_ShouldReturnNotFoundResponse() throws Exception {
+    given(bookingController.findAll(0,10)).willThrow(new EntityNotFoundException("Entity not found"));
 
-    assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-    assertNotNull(response.getBody());
-    assertEquals("Entity not found", response.getBody().getErrorMessage());
+    mockMvc.perform(get("/api/v1/booking/1"))
+      .andExpect(status().isNotFound())
+      .andExpect(jsonPath("$.errorMessage").value("Entity not found"))
+      .andExpect(jsonPath("$.status").value(404))
+      .andExpect(jsonPath("$.timestamp").isNotEmpty());
   }
 
   @Test
-  void notValid_ShouldReturnBadRequestResponse() {
-    BindingResult bindingResult = mock(BindingResult.class);
-    when(bindingResult.getAllErrors()).thenReturn(Collections.emptyList());
-    MethodArgumentNotValidException ex = new MethodArgumentNotValidException(null, bindingResult);
+  void notValid_ShouldReturnBadRequestResponse() throws Exception {
+    String invalidRequest = "{}";
 
-    ResponseEntity<ErrorResponse> response = exceptionHandlerController.notValid(ex);
-
-    assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-    assertNotNull(response.getBody());
+    mockMvc.perform(post("/api/v1/booking")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(invalidRequest))
+      .andExpect(status().isBadRequest())
+      .andExpect(jsonPath("$.errorMessage", not(emptyString())))
+      .andExpect(jsonPath("$.status").value(400))
+      .andExpect(jsonPath("$.timestamp").isNotEmpty());
   }
 
   @Test
-  void handleMissingParams_ShouldReturnBadRequestResponse() {
-    MissingServletRequestParameterException ex = new MissingServletRequestParameterException("param", "String");
-    ResponseEntity<ErrorResponse> response = exceptionHandlerController.handleMissingParams(ex);
-
-    assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-    assertNotNull(response.getBody());
-    assertTrue(response.getBody().getErrorMessage().contains("param"));
+  void handleMissingParams_ShouldReturnBadRequestResponse() throws Exception {
+    mockMvc.perform(get("/api/v1/booking"))
+      .andExpect(status().isBadRequest())
+      .andExpect(jsonPath("$.errorMessage", containsString("Required request parameter")))
+      .andExpect(jsonPath("$.status").value(400))
+      .andExpect(jsonPath("$.timestamp").isNotEmpty());
   }
 
   @Test
-  void handleGenericException_ShouldReturnInternalServerError() {
-    Exception ex = new Exception("Unexpected error");
-    ResponseEntity<ErrorResponse> response = exceptionHandlerController.handleGenericException(ex);
+  void handleGenericException_ShouldReturnInternalServerError() throws Exception {
+    given(bookingController.findAll(0, 10)).willThrow(new RuntimeException("Unexpected error"));
 
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-    assertNotNull(response.getBody());
-    assertEquals("Unexpected error", response.getBody().getErrorMessage());
+    mockMvc.perform(get("/api/v1/booking/1"))
+      .andExpect(status().isInternalServerError())
+      .andExpect(jsonPath("$.errorMessage").value("Unexpected error"))
+      .andExpect(jsonPath("$.status").value(500))
+      .andExpect(jsonPath("$.timestamp").isNotEmpty());
   }
 }

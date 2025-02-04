@@ -1,50 +1,51 @@
 package ru.skillbox.hotel_booking_service.tests;
 
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.io.Resource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.web.servlet.MockMvc;
 import ru.skillbox.hotel_booking_service.service.StatisticsService;
 import ru.skillbox.hotel_booking_service.web.controller.StatisticsController;
 
-import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith(SpringExtension.class)
+@WebMvcTest(StatisticsController.class)
 class StatisticsControllerTest {
 
-  @Mock
+  @Autowired
+  private MockMvc mockMvc;
+
+  @MockBean
   private StatisticsService statisticsService;
 
-  @InjectMocks
-  private StatisticsController statisticsController;
-
   @Test
-  void downloadStatistics_ShouldReturnCsvFile() throws IOException {
+  void downloadStatistics_ShouldReturnCsvFile() throws Exception {
     String csvData = "id,name\n1,Test Hotel";
-    when(statisticsService.exportStatisticsToCSV()).thenReturn(csvData);
+    given(statisticsService.exportStatisticsToCSV()).willReturn(csvData);
 
-    ResponseEntity<Resource> response = statisticsController.downloadStatistics();
-
-    assertEquals(HttpStatus.OK, response.getStatusCode());
-    assertNotNull(response.getBody());
-    assertEquals("attachment; filename=statistics.csv", response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION));
+    mockMvc.perform(get("/api/v1/statistics/download"))
+      .andExpect(status().isOk())
+      .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=statistics.csv"))
+      .andExpect(content().contentType(MediaType.APPLICATION_OCTET_STREAM))
+      .andExpect(content().string(csvData));
   }
 
   @Test
-  void downloadStatistics_WhenIOException_ShouldReturnServerError() throws IOException {
-    when(statisticsService.exportStatisticsToCSV()).thenThrow(new RuntimeException("IO error"));
+  void downloadStatistics_WhenIOException_ShouldReturnServerError() throws Exception {
+    given(statisticsService.exportStatisticsToCSV()).willThrow(new RuntimeException("IO error"));
 
-    ResponseEntity<Resource> response = statisticsController.downloadStatistics();
-
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-    assertNotNull(response.getBody());
+    mockMvc.perform(get("/api/v1/statistics/download"))
+      .andExpect(status().isInternalServerError());
   }
 }
